@@ -35,6 +35,19 @@ public class PlayerBehaviour : MonoBehaviour
     float m_kickTimer = 0;
     float m_actionTimer = 0;
 
+    SubscriberList m_subscriberList = new SubscriberList();
+
+    private void Awake()
+    {
+        m_subscriberList.Add(new Event<ProcessFrameEvent>.Subscriber(OnProcess));
+        m_subscriberList.Subscribe();
+    }
+
+    private void OnDestroy()
+    {
+        m_subscriberList.Unsubscribe();
+    }
+
     void Start()
     {
         m_playerCommands = GetComponent<PlayerCommandsBase>();
@@ -46,9 +59,9 @@ public class PlayerBehaviour : MonoBehaviour
             Debug.Log("PlayerBehaviour - Need a rigidbody 2D");
     }
     
-    void FixedUpdate()
-    {
-        PlayerCommandsBase.GetCommandsData data = new PlayerCommandsBase.GetCommandsData(0);
+    void OnProcess(ProcessFrameEvent e)
+    { 
+        PlayerCommandsBase.GetCommandsData data = new PlayerCommandsBase.GetCommandsData(e.frame, e.status);
         m_playerCommands.GetCommands(data);
 
         CheckGrounded();
