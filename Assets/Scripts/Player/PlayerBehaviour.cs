@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections;
+using DG.Tweening;
 
 public class PlayerBehaviour : MonoBehaviour
 {
@@ -11,13 +12,16 @@ public class PlayerBehaviour : MonoBehaviour
     [SerializeField] float m_kickPower = 10;
     [SerializeField] float m_kickAngle = 20;
     [SerializeField] float m_kickDelay = 0.2f;
+    [SerializeField] float m_kickCooldown = 0.5f;
     [SerializeField] Vector2 m_kickOffset = new Vector2(0.2f, 0.1f);
-    [SerializeField] LayerMask m_kickMask;
+    [SerializeField] float m_kickRadius = 1;
+    [SerializeField] LayerMask m_kickMask = 0;
     [SerializeField] float m_groundCheckDistance = 1;
     [SerializeField] float m_groundCheckRadius = 1;
-    [SerializeField] LayerMask m_groundMask;
+    [SerializeField] LayerMask m_groundMask = 0;
     [SerializeField] float m_actionRadius = 1;
-    [SerializeField] LayerMask m_actionMask;
+    [SerializeField] LayerMask m_actionMask = 0; 
+    [SerializeField] float m_actionCooldown = 0.5f;
 
     PlayerCommandsBase m_playerCommands = null;
 
@@ -27,6 +31,9 @@ public class PlayerBehaviour : MonoBehaviour
     float m_jumpDelay = 0;
 
     bool m_faceRight = true;
+
+    float m_kickTimer = 0;
+    float m_actionTimer = 0;
 
     void Start()
     {
@@ -42,6 +49,7 @@ public class PlayerBehaviour : MonoBehaviour
     void FixedUpdate()
     {
         PlayerCommandsBase.GetCommandsData data = new PlayerCommandsBase.GetCommandsData(0);
+        m_playerCommands.GetCommands(data);
 
         CheckGrounded();
 
@@ -51,14 +59,16 @@ public class PlayerBehaviour : MonoBehaviour
 
         if(data.kickPressed)
             Kick();
+        m_kickTimer -= Time.deltaTime;
 
         if (data.actionPressed)
             Action();
+        m_actionTimer -= Time.deltaTime;
     }
 
     void CheckGrounded()
     {
-        var colliders = Physics2D.OverlapCircleAll(transform.position + new Vector3(0, -m_groundCheckDistance, 0), m_groundCheckDistance, m_groundMask);
+        var colliders = Physics2D.OverlapCircleAll(transform.position + new Vector3(0, -m_groundCheckDistance, 0), m_groundCheckRadius, m_groundMask);
 
         if(colliders.Length == 0)
         {
@@ -86,19 +96,19 @@ public class PlayerBehaviour : MonoBehaviour
         var velocity = m_rigidbody.velocity;
 
         float maxSpeed = m_maxSpeed;
-        float acceleration = m_grounded ? m_acceleration : m_aerialAcceleration;
+        float acceleration = (m_grounded ? m_acceleration : m_aerialAcceleration) * Time.deltaTime;
 
         float targetSpeed = movePower * maxSpeed;
 
         if(targetSpeed < velocity.x)
         {
-            velocity.x -= Time.deltaTime * acceleration;
+            velocity.x -= acceleration;
             if (targetSpeed > velocity.x)
                 velocity.x = targetSpeed;
         }
         if(targetSpeed > velocity.x)
         {
-            velocity.x += Time.deltaTime * acceleration;
+            velocity.x += acceleration;
             if (targetSpeed < velocity.x)
                 velocity.x = targetSpeed;
         }
@@ -126,6 +136,7 @@ public class PlayerBehaviour : MonoBehaviour
         {
             var velocity = m_rigidbody.velocity;
             velocity.y = m_jumpPower;
+            m_rigidbody.velocity = velocity;
             m_jumpDelay = 0;
         }
 
@@ -134,11 +145,55 @@ public class PlayerBehaviour : MonoBehaviour
 
     void Kick()
     {
+        if (m_kickTimer > 0)
+            return;
 
+        m_kickTimer = m_kickCooldown;
+
+        DOVirtual.DelayedCall(m_kickDelay, () =>
+        {
+            Vector3 offset = m_kickOffset;
+            if (!m_faceRight)
+                offset.x *= -1;
+            var colliders = Physics2D.OverlapCircleAll(transform.position + offset, m_kickRadius, m_kickMask);
+
+            var kickVector = new Vector2(Mathf.Cos(m_kickAngle * Mathf.Deg2Rad), Mathf.Sin(m_kickAngle * Mathf.Deg2Rad)) * m_kickPower;
+            if (!m_faceRight)
+                kickVector.x *= -1;
+
+            foreach(var c in colliders)
+            {
+                var r = c.GetComponent<Rigidbody2D>();
+                if (r == null)
+                    continue;
+
+                var velocity = r.velocity;
+                if (kickVector.x < 0 && velocity.x > kickVector.x)
+                    velocity.x = kickVector.x;
+                if (kickVector.x > 0 && velocity.x < kickVector.x)
+                    velocity.x = kickVector.x;
+                if (velocity.y < kickVector.y)
+                    velocity.y = kickVector.y;
+
+                r.velocity = velocity;
+            }
+        });
     }
 
     void Action()
     {
+        if (m_actionTimer > 0)
+            return;
 
+        m_actionTimer = m_actionCooldown;
+
+        var colliders = Physics2D.OverlapCircleAll(transform.position, m_actionRadius, m_actionMask);
+
+        foreach(var c in colliders)
+        {
+            var act = c.GetComponent<Actionable>();
+            if (act != null)
+                act.Exec();
+        }
     }
 }
