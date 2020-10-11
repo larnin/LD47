@@ -34,6 +34,7 @@ public class PlayerBehaviour : MonoBehaviour
 
     float m_kickTimer = 0;
     float m_actionTimer = 0;
+    bool m_started = false;
 
     SubscriberList m_subscriberList = new SubscriberList();
 
@@ -57,10 +58,14 @@ public class PlayerBehaviour : MonoBehaviour
         m_rigidbody = GetComponent<Rigidbody2D>();
         if (m_rigidbody == null)
             Debug.Log("PlayerBehaviour - Need a rigidbody 2D");
+        m_started = true;
     }
     
     void OnProcess(ProcessFrameEvent e)
-    { 
+    {
+        if (!m_started)
+            return;
+
         PlayerCommandsBase.GetCommandsData data = new PlayerCommandsBase.GetCommandsData(e.frame, e.status);
         m_playerCommands.GetCommands(data);
 

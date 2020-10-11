@@ -13,6 +13,13 @@ public class PlayerCommandsHuman : PlayerCommandsBase
     bool m_action = false;
     float m_direction = 0;
 
+    Rigidbody2D m_rigidbody = null;
+
+    private void Start()
+    {
+        m_rigidbody = GetComponent<Rigidbody2D>();
+    }
+
     void Update()
     {
         m_direction = Input.GetAxisRaw(horizontalButton);
@@ -35,5 +42,11 @@ public class PlayerCommandsHuman : PlayerCommandsBase
         m_jumped = false;
         m_kicked = false;
         m_action = false;
+
+        var timeline = TimelineManager.instance;
+        if(timeline != null)
+        {
+            timeline.SetFrame(m_timelineIndex, data.frame, data, transform.position, transform.rotation.eulerAngles.z, m_rigidbody.velocity, m_rigidbody.angularVelocity);
+        }
     }
 }

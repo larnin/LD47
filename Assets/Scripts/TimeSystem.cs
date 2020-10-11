@@ -23,6 +23,8 @@ public class TimeSystem : MonoBehaviour
     void Start()
     {
         m_currentStatus = FrameStatus.Playing;
+
+        Event<FrameStatusChangedEvent>.Broadcast(new FrameStatusChangedEvent(m_currentStatus, FrameStatus.Pause));
     }
 
     private void Update()
@@ -33,11 +35,14 @@ public class TimeSystem : MonoBehaviour
         bool backwardPressed = Input.GetButton(fastBackwardButton);
         bool forwardPressed = Input.GetButton(fastForwardButton);
 
+        var lastStatus = m_currentStatus;
         if (backwardPressed)
             m_currentStatus = FrameStatus.FastBackward;
         else if (forwardPressed)
             m_currentStatus = FrameStatus.FastForward;
         else m_currentStatus = FrameStatus.Playing;
+        if (m_currentStatus != lastStatus)
+            Event<FrameStatusChangedEvent>.Broadcast(new FrameStatusChangedEvent(m_currentStatus, lastStatus));
     }
 
     void FixedUpdate()
